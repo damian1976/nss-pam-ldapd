@@ -58,6 +58,7 @@ const char *passwd_filter = "(objectClass=posixAccount)";
 
 /* the attributes used in searches */
 const char *attmap_passwd_uid           = "uid";
+const char *attmap_passwd_mail           = "mal";
 const char *attmap_passwd_userPassword  = "\"*\"";
 const char *attmap_passwd_uidNumber     = "uidNumber";
 const char *attmap_passwd_gidNumber     = "gidNumber";
@@ -89,9 +90,16 @@ static int mkfilter_passwd_byname(const char *name,
                                   char *buffer,size_t buflen)
 {
   char safename[300];
+  int emailCheck = strchr(str, '@') != NULL;
   /* escape attribute */
   if(myldap_escape(name,safename,sizeof(safename)))
     return -1;
+  if emailCheck
+    return mysnprintf(buffer,buflen,
+                    "(&%s(%s=%s))",
+                    passwd_filter,
+                    attmap_passwd_mail,safename);
+  else
   /* build filter */
   return mysnprintf(buffer,buflen,
                     "(&%s(%s=%s))",
