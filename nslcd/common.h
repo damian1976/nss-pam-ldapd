@@ -262,7 +262,10 @@ int nslcd_pam_pwmod(TFILE *fp,MYLDAP_SESSION *session,uid_t calleruid);
       while ((entry=myldap_get_entry(search,&rc))!=NULL) \
       { \
         if (writefn) \
+        { \
+          log_log(LOG_DEBUG,"NSLCD_HANDLE_BODY ret -1"); \
           return -1; \
+        } \
       } \
     } \
     /* write the final result code */ \
@@ -277,6 +280,6 @@ int nslcd_pam_pwmod(TFILE *fp,MYLDAP_SESSION *session,uid_t calleruid);
    Use the ignorecase config option to determine whether or not to do a
    case-sensitive match */
 #define STR_CMP(str1,str2) \
-  (nslcd_cfg->ldc_ignorecase == 1 ? strcasecmp(str1,str2) : strcmp(str1,str2))
+  (nslcd_cfg->ldc_ignorecase == 1 ? str1!=NULL? (str2!=NULL? strcasecmp(str1,str2):1):1 : str1!=NULL? (str2!=NULL? strcmp(str1,str2):1):1)
 
 #endif /* not NSLCD__COMMON_H */

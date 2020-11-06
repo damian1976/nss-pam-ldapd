@@ -45,6 +45,7 @@ extern const char *attmap_netgroup_memberNisNetgroup;
 extern const char *attmap_network_cn;
 extern const char *attmap_network_ipNetworkNumber;
 extern const char *attmap_passwd_uid;
+extern const char *attmap_passwd_mail;
 extern const char *attmap_passwd_userPassword;
 extern const char *attmap_passwd_uidNumber;
 extern const char *attmap_passwd_gidNumber;
