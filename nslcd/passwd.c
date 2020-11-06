@@ -55,10 +55,11 @@ int passwd_scope = LDAP_SCOPE_DEFAULT;
 
 /* the basic search filter for searches */
 const char *passwd_filter = "(objectClass=posixAccount)";
+//const char *passwd_filter = "(objectClass=*)";
 
 /* the attributes used in searches */
 const char *attmap_passwd_uid           = "uid";
-const char *attmap_passwd_mail           = "mal";
+const char *attmap_passwd_mail          = "mail";
 const char *attmap_passwd_userPassword  = "\"*\"";
 const char *attmap_passwd_uidNumber     = "uidNumber";
 const char *attmap_passwd_gidNumber     = "gidNumber";
@@ -89,12 +90,12 @@ static const char **passwd_attrs=NULL;
 static int mkfilter_passwd_byname(const char *name,
                                   char *buffer,size_t buflen)
 {
-  char safename[300];
-  int emailCheck = strchr(str, '@') != NULL;
+  char safename[300];  
   /* escape attribute */
   if(myldap_escape(name,safename,sizeof(safename)))
     return -1;
-  if emailCheck
+  int emailCheck = strchr(safename, '@') != NULL;
+  if (emailCheck)
     return mysnprintf(buffer,buflen,
                     "(&%s(%s=%s))",
                     passwd_filter,
@@ -156,6 +157,7 @@ void passwd_init(void)
   set=set_new();
   attmap_add_attributes(set,"objectClass"); /* for testing shadowAccount */
   attmap_add_attributes(set,attmap_passwd_uid);
+  attmap_add_attributes(set,attmap_passwd_mail);
   attmap_add_attributes(set,attmap_passwd_userPassword);
   attmap_add_attributes(set,attmap_passwd_uidNumber);
   attmap_add_attributes(set,attmap_passwd_gidNumber);
@@ -189,6 +191,7 @@ static int entry_has_valid_uid(MYLDAP_ENTRY *entry)
   const char **values;
   char *tmp;
   uid_t uid;
+  log_log(LOG_DEBUG,"entry_has_valid_uid");
   /* if min_uid is not set any entry should do */
   if (nslcd_cfg->ldc_nss_min_uid==0)
     return 1;
@@ -238,7 +241,8 @@ char *lookup_dn2uid(MYLDAP_SESSION *session,const char *dn,int *rcp,char *buf,si
   static const char *attrs[3];
   int rc=LDAP_SUCCESS;
   const char **values;
-  char *uid=NULL;
+  char *uid=NULL;  
+  log_log(LOG_DEBUG,"lookup_dn2uid");
   if (rcp==NULL)
     rcp=&rc;
   /* we have to look up the entry */
@@ -263,7 +267,7 @@ char *lookup_dn2uid(MYLDAP_SESSION *session,const char *dn,int *rcp,char *buf,si
   {
     /* get uid (just use first one) */
     values=myldap_get_values(entry,attmap_passwd_uid);
-    /* check the result for presence and validity */
+    /* check the result for presence and validity */    
     if ((values!=NULL)&&(values[0]!=NULL)&&isvalidname(values[0])&&(strlen(values[0])<buflen))
     {
       strcpy(buf,values[0]);
@@ -283,6 +287,8 @@ char *dn2uid(MYLDAP_SESSION *session,const char *dn,char *buf,size_t buflen)
 {
   struct dn2uid_cache_entry *cacheentry=NULL;
   char *uid;
+  printf("dn2uid: %s", dn);
+  log_log(LOG_DEBUG,"dn2uid: %s", dn);
   /* check for empty string */
   if ((dn==NULL)||(*dn=='\0'))
     return NULL;
@@ -463,6 +469,7 @@ static int write_passwd(TFILE *fp,MYLDAP_ENTRY *entry,const char *requser,
   int32_t tmpint32;
   const char **tmpvalues;
   char *tmp;
+  const char **usernamesmails = NULL;
   const char **usernames;
   const char *passwd;
   uid_t uids[MAXUIDS_PER_ENTRY];
@@ -470,11 +477,17 @@ static int write_passwd(TFILE *fp,MYLDAP_ENTRY *entry,const char *requser,
   char gidbuf[32];
   gid_t gid;
   char gecos[1024];
+  char email[1024];
   char homedir[256];
   char shell[64];
   char passbuffer[256];
   int i,j;
+  
+  log_log(LOG_DEBUG, "write_passwd, user %s", requser);
   /* get the usernames for this entry */
+  int emailCheck = (requser != NULL)? strchr(requser, '@') != NULL: 0;  
+  if (emailCheck)
+      usernamesmails=myldap_get_values(entry,attmap_passwd_mail);
   usernames=myldap_get_values(entry,attmap_passwd_uid);
   if ((usernames==NULL)||(usernames[0]==NULL))
   {
@@ -577,9 +590,13 @@ static int write_passwd(TFILE *fp,MYLDAP_ENTRY *entry,const char *requser,
                         myldap_get_dn(entry),attmap_passwd_homeDirectory);
   /* get the shell for this entry */
   attmap_get_value(entry,attmap_passwd_loginShell,shell,sizeof(shell));
+
   /* write the entries */
   for (i=0;usernames[i]!=NULL;i++)
-    if ((requser==NULL)||(STR_CMP(requser,usernames[i])==0))
+  {
+    int cmp=emailCheck?STR_CMP(requser,usernamesmails[i]):STR_CMP(requser,usernames[i]);
+    if ((requser==NULL)||cmp==0)
+    //if ((requser == NULL) || (STR_CMP(requser, usernames[i]) == 0))
     {
       if (!isvalidname(usernames[i]))
       {
@@ -592,6 +609,7 @@ static int write_passwd(TFILE *fp,MYLDAP_ENTRY *entry,const char *requser,
         {
           if (uids[j]>=nslcd_cfg->ldc_nss_min_uid)
           {
+            log_log(LOG_DEBUG,"USERNAME: %s",usernames[i]);
             WRITE_INT32(fp,NSLCD_RESULT_BEGIN);
             WRITE_STRING(fp,usernames[i]);
             WRITE_STRING(fp,passwd);
@@ -604,6 +622,7 @@ static int write_passwd(TFILE *fp,MYLDAP_ENTRY *entry,const char *requser,
         }
       }
     }
+  }
   return 0;
 }
 
@@ -627,7 +646,7 @@ NSLCD_HANDLE_UID(
   passwd,byuid,
   uid_t uid;
   char filter[4096];
-  READ_TYPE(fp,uid,uid_t);
+  READ_TYPE(fp,uid,uid_t);  
   log_setrequest("passwd=%d",(int)uid);
   if (uid<nslcd_cfg->ldc_nss_min_uid)
   {

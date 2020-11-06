@@ -1486,7 +1486,9 @@ const char **myldap_get_values(MYLDAP_ENTRY *entry,const char *attr)
   char **values;
   int rc;
   int i;
+  BerElement *ber;
   SET *set;
+  log_log(LOG_DEBUG,"myldap_get_values %s",attr);
   /* check parameters */
   if (!is_valid_entry(entry))
   {
@@ -1502,8 +1504,10 @@ const char **myldap_get_values(MYLDAP_ENTRY *entry,const char *attr)
   }
   if (!entry->search->valid)
     return NULL; /* search has been stopped */
-  /* get from LDAP */
-  values=ldap_get_values(entry->search->session->ld,entry->search->msg,attr);
+
+
+  /* get from LDAP */    
+  values=ldap_get_values(entry->search->session->ld,entry->search->msg,attr);  
   if (values==NULL)
   {
     if (ldap_get_option(entry->search->session->ld,LDAP_OPT_ERROR_NUMBER,&rc)!=LDAP_SUCCESS)

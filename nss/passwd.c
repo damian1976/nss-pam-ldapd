@@ -36,7 +36,7 @@ static nss_status_t read_passwd(
         char *buffer,size_t buflen,int *errnop)
 {
   int32_t tmpint32;
-  size_t bufptr=0;
+  size_t bufptr=0;  
   memset(result,0,sizeof(struct passwd));
   READ_BUF_STRING(fp,result->pw_name);
   READ_BUF_STRING(fp,result->pw_passwd);

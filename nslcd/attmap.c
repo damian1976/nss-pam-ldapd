@@ -167,6 +167,7 @@ const char **attmap_get_var(enum ldap_map_selector map,const char *name)
   else if (map==LM_PASSWD)
   {
     if (strcasecmp(name,"uid")==0)               return &attmap_passwd_uid;
+    if (strcasecmp(name,"mail")==0)              return &attmap_passwd_mail;
     if (strcasecmp(name,"userPassword")==0)      return &attmap_passwd_userPassword;
     if (strcasecmp(name,"uidNumber")==0)         return &attmap_passwd_uidNumber;
     if (strcasecmp(name,"gidNumber")==0)         return &attmap_passwd_gidNumber;
@@ -259,7 +260,7 @@ const char *attmap_get_value(MYLDAP_ENTRY *entry,const char *attr,char *buffer,s
   /* check and clear buffer */
   if ((buffer==NULL)||(buflen<=0))
     return NULL;
-  buffer[0]='\0';
+  buffer[0]='\0';  
   /* for simple values just return the attribute */
   if (attr[0]!='"')
   {
